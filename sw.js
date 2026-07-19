@@ -1,16 +1,25 @@
-const CACHE='coachchess-v1.3.0';
+const CACHE='coachchess-v1.4.0';
 const ASSETS=[
 './','index.html','app.js','manifest.webmanifest','VERSION',
-'assets/icon-192.png','assets/icon-512.png',
-'engine/stockfish-18-lite-single.js','engine/stockfish-18-lite-single.wasm'
+'icon-192.png','icon-512.png',
+'stockfish-18-lite-single.js','stockfish-18-lite-single.wasm'
 ];
-self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
-self.addEventListener('activate',e=>e.waitUntil(Promise.all([
-  self.clients.claim(),
-  caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
-])));
-self.addEventListener('fetch',e=>e.respondWith(
-  caches.match(e.request).then(cached=>cached||fetch(e.request).then(resp=>{
-    const copy=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return resp;
-  }))
-));
+self.addEventListener('install',event=>{
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));
+});
+self.addEventListener('activate',event=>{
+  event.waitUntil(Promise.all([
+    self.clients.claim(),
+    caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))
+  ]));
+});
+self.addEventListener('fetch',event=>{
+  event.respondWith(
+    fetch(event.request).then(response=>{
+      const copy=response.clone();
+      caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+      return response;
+    }).catch(()=>caches.match(event.request))
+  );
+});

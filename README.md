@@ -1,19 +1,24 @@
-# CoachChess
+# CoachChess 1.4
 
-## Version
-1.3.0
+Diese Version nutzt absichtlich eine flache Dateistruktur. Alle Dateien werden direkt in das Hauptverzeichnis des GitHub-Repositories hochgeladen.
 
-## Projektstruktur
-- `index.html` – Oberfläche und Design
-- `app.js` – Schachregeln, Trainer und Stockfish-Anbindung
-- `sw.js` – Offline-Cache und App-Updates
-- `manifest.webmanifest` – PWA-Konfiguration
-- `assets/` – App-Symbole
-- `engine/` – Stockfish 18 WebAssembly
-- `VERSION` – Versionsstand
+## Benötigte Dateien
+- index.html
+- app.js
+- sw.js
+- manifest.webmanifest
+- icon-192.png
+- icon-512.png
+- stockfish-18-lite-single.js
+- stockfish-18-lite-single.wasm
+- VERSION
+- README.md
+- STOCKFISH_LICENSE.txt
 
-## Künftige Updates
-Bei kleinen Änderungen werden nur die betroffenen Dateien ersetzt. Nach dem Commit veröffentlicht GitHub Pages automatisch.
+## Anzeige in der App
+- `Stockfish 18 bereit`: Engine funktioniert.
+- `Ersatz-Engine aktiv · Stockfish-Datei fehlt`: eine Engine-Datei fehlt oder ist nicht erreichbar.
+- `Ersatz-Engine aktiv · Startfehler`: Browser konnte den Worker nicht starten.
+- `Ersatz-Engine aktiv · Zeitüberschreitung`: Stockfish wurde geladen, antwortet aber nicht.
 
-## Engine
-Stockfish 18 lite single-threaded. Lizenz: `STOCKFISH_LICENSE.txt`
+Unter „Engine-Diagnose“ stehen die einzelnen Prüfschritte.

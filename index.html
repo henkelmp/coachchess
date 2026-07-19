@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>CoachChess</title>
 <style>
 :root{--bg:#0f172a;--panel:#111827;--text:#f8fafc;--muted:#cbd5e1;--light:#f0d9b5;--dark:#b58863;--accent:#facc15}
@@ -27,11 +27,11 @@ select,textarea{width:100%;background:#0b1220;color:#fff;border:1px solid #47556
 <body>
 <div class="app">
 <main>
-<h1>CoachChess <span style="font-size:.72rem;color:#94a3b8">v1.3</span></h1><div class="sub">Installierbarer Schachtrainer · Du spielst Weiß</div>
+<h1>CoachChess <span style="font-size:.72rem;color:#94a3b8">v1.4</span></h1><div class="sub">Installierbarer Schachtrainer · Du spielst Weiß</div>
 <div class="panel"><div id="board" class="board"></div></div>
 </main>
 <aside class="side">
-<section class="panel"><div id="status" class="status">Weiß am Zug</div><div id="detail" class="muted">Neue Partie</div><div id="engineStatus" class="muted" style="margin-top:5px">Engine wird geladen …</div>
+<section class="panel"><div id="status" class="status">Weiß am Zug</div><div id="detail" class="muted">Neue Partie</div><div id="engineStatus" class="muted" style="margin-top:5px">Engine wird geladen …</div><details id="engineDetails" style="margin-top:8px"><summary class="muted" style="cursor:pointer">Engine-Diagnose</summary><div id="engineDiagnostic" class="muted" style="margin-top:7px;line-height:1.45">Startdiagnose läuft …</div></details>
 <div class="buttons"><button id="new" class="btn primary">Neue Partie</button><button id="undo" class="btn">Zug zurück</button><button id="flip" class="btn">Brett drehen</button><button id="hint" class="btn">Hinweis</button></div>
 <button id="install" class="btn install">App installieren</button></section>
 <section class="panel"><strong>Trainer</strong><div id="coach" class="muted" style="margin-top:7px">Besetze das Zentrum und entwickle Springer und Läufer.</div></section>
