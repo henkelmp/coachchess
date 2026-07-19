@@ -1,5 +1,5 @@
 "use strict";
-const F="abcdefgh",U={wK:"♔",wQ:"♕",wR:"♖",wB:"♗",wN:"♘",wP:"♙",bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"},V={P:100,N:320,B:330,R:500,Q:900,K:20000};
+const F="abcdefgh",U={wK:"♚",wQ:"♛",wR:"♜",wB:"♝",wN:"♞",wP:"♟",bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"},V={P:100,N:320,B:330,R:500,Q:900,K:20000};
 let S,H=[],sel=null,T=[],flip=false,busy=false,deferredPrompt=null;
 const xy=i=>[i%8,Math.floor(i/8)],ix=(x,y)=>y*8+x,ins=(x,y)=>x>=0&&x<8&&y>=0&&y<8,foe=c=>c==="w"?"b":"w",nm=i=>{let[x,y]=xy(i);return F[x]+(8-y)};
 function init(){let b=Array(64).fill(null),q=["R","N","B","Q","K","B","N","R"];for(let x=0;x<8;x++){b[x]={c:"b",t:q[x]};b[8+x]={c:"b",t:"P"};b[48+x]={c:"w",t:"P"};b[56+x]={c:"w",t:q[x]}}return{b,turn:"w",cas:{wK:1,wQ:1,bK:1,bQ:1},ep:-1,half:0,full:1,last:null}}
