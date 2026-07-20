@@ -1,9 +1,17 @@
-# CoachChess 2.0
+# CoachChess 2.1
 
-Stabile Basisversion für GitHub Pages.
+## Stockfish-Fehlerbehebung
 
-## Wichtig
-Alle Dateien gehören direkt in das Hauptverzeichnis des Repositorys. Versionierte URLs verhindern, dass Safari alte JavaScript-Dateien aus dem Cache verwendet. Stockfish erhält den WebAssembly-Pfad ausdrücklich beim Start.
+GitHub Pages lieferte die bisherige Engine-JavaScript-Datei unter ihrem alten Namen mit HTTP 404 aus. Version 2.1 verwendet deshalb die Datei `engine.js`.
+
+Die WebAssembly-Datei bleibt `stockfish-18-lite-single.wasm`.
+
+## Hochladen
+
+Alle Dateien aus diesem Paket ins Hauptverzeichnis des Repositorys hochladen und vorhandene Dateien ersetzen.
+
+Die alte Datei `stockfish-18-lite-single.js` wird nicht mehr verwendet und kann anschließend auf GitHub gelöscht werden.
 
 ## Erwartete Anzeige
-Nach wenigen Sekunden: `Stockfish 18 bereit`. Unter `Engine-Diagnose` werden alle Startschritte angezeigt.
+
+Nach wenigen Sekunden sollte `Stockfish 18 bereit` erscheinen.
