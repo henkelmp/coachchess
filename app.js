@@ -2,7 +2,7 @@
 const F="abcdefgh",U={wK:"♚",wQ:"♛",wR:"♜",wB:"♝",wN:"♞",wP:"♟",bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"},V={P:100,N:320,B:330,R:500,Q:900,K:20000};
 let S,H=[],sel=null,T=[],flip=false,busy=false,deferredPrompt=null;
 let sfWorker=null,sfReady=false,sfBusy=false,sfQueue=[],sfInitTimer=null;
-const APP_VERSION="2.2.0";
+const APP_VERSION="2.3.0";
 const SF_SCRIPT="engine.js";
 const SF_WASM="engine.wasm";
 
@@ -58,7 +58,7 @@ async function initStockfish(){
         sfReady=true;
         diagnostics.push("✓ Stockfish 18 ist spielbereit");
         engineDiagnostic(diagnostics);
-        engineLabel("Stockfish 18 bereit");
+        engineLabel("Stockfish 18 bereit · "+currentLevel().name);
         return;
       }
       if(line.startsWith("bestmove ")){
@@ -95,13 +95,23 @@ function uciMoveToLegal(uci,s){
   const promotion=uci[4]?uci[4].toUpperCase():null;
   return legal(s).find(m=>m.from===from&&m.to===to&&(!promotion||m.promotion===promotion))||null;
 }
-function stockfishBestMove(s,depth=10){
+const LEVELS={
+  1:{name:"Einsteiger",skill:0,time:180},
+  2:{name:"Leicht",skill:4,time:260},
+  3:{name:"Mittel",skill:8,time:420},
+  4:{name:"Stark",skill:13,time:650},
+  5:{name:"Sehr stark",skill:18,time:950}
+};
+function currentLevel(){return LEVELS[+document.getElementById("level").value]||LEVELS[3]}
+function stockfishBestMove(s,{skill=8,time=420}={}){
   return new Promise((resolve,reject)=>{
     if(!sfReady||!sfWorker||sfBusy){reject(new Error("Stockfish nicht bereit"));return}
     sfBusy=true;sfQueue.push({resolve,reject});
+    sfWorker.postMessage("setoption name UCI_LimitStrength value false");
+    sfWorker.postMessage("setoption name Skill Level value "+skill);
     sfWorker.postMessage("position fen "+fen(s));
-    sfWorker.postMessage("go depth "+depth);
-    setTimeout(()=>{if(sfBusy){try{sfWorker.postMessage("stop")}catch{}}},7000);
+    sfWorker.postMessage("go movetime "+time);
+    setTimeout(()=>{if(sfBusy){try{sfWorker.postMessage("stop")}catch{}}},Math.max(3500,time+2500));
   });
 }
 
@@ -127,12 +137,18 @@ function san(s,m){let p=s.b[m.from],cap=!!s.b[m.to]||m.ep;if(m.castle)return m.c
 function ev(s){let z=0;for(let i=0;i<64;i++){let p=s.b[i];if(!p)continue;let v=V[p.t],[x,y]=xy(i),c=(3.5-Math.abs(3.5-x))+(3.5-Math.abs(3.5-y));if(p.t==="N"||p.t==="B")v+=c*4;if(p.t==="P")v+=(p.c==="w"?6-y:y-1)*6;z+=(p.c==="w"?1:-1)*v}return z}
 function ord(s){return legal(s).sort((a,b)=>(s.b[b.to]?V[s.b[b.to].t]:0)-(s.b[a.to]?V[s.b[a.to].t]:0))}
 function mm(s,d,a,b){let ms=ord(s);if(!ms.length)return chk(s,s.turn)?(s.turn==="w"?-999999:999999):0;if(!d)return ev(s);if(s.turn==="w"){let q=-1e9;for(let m of ms){q=Math.max(q,mm(apply(s,m),d-1,a,b));a=Math.max(a,q);if(b<=a)break}return q}else{let q=1e9;for(let m of ms){q=Math.min(q,mm(apply(s,m),d-1,a,b));b=Math.min(b,q);if(b<=a)break}return q}}
-function fallbackAI(){let lv=+document.getElementById("level").value,ms=ord(S);if(!ms.length)return null;if(lv===1)return ms[Math.floor(Math.random()*ms.length)];let d=lv===2?2:3,best=[],bs=1e9;for(let m of ms){let z=mm(apply(S,m),d-1,-1e9,1e9);if(z<bs){bs=z;best=[m]}else if(z===bs)best.push(m)}return best[Math.floor(Math.random()*best.length)]}
+function fallbackAI(){
+  const lv=+document.getElementById("level").value,ms=ord(S);
+  if(!ms.length)return null;
+  if(lv===1)return ms[Math.floor(Math.random()*ms.length)];
+  const d=lv<=2?1:lv===3?2:3,best=[];let bs=1e9;
+  for(const m of ms){const z=mm(apply(S,m),d-1,-1e9,1e9);if(z<bs){bs=z;best.length=0;best.push(m)}else if(z===bs)best.push(m)}
+  return best[Math.floor(Math.random()*best.length)];
+}
 async function chooseComputerMove(){
-  const level=+document.getElementById("level").value;
-  const depth=level===1?5:level===2?9:12;
+  const level=currentLevel();
   try{
-    const uci=await stockfishBestMove(S,depth);
+    const uci=await stockfishBestMove(S,{skill:level.skill,time:level.time});
     const move=uciMoveToLegal(uci,S);
     if(move)return move;
   }catch(e){}
@@ -141,7 +157,7 @@ async function chooseComputerMove(){
 }
 
 function save(){localStorage.setItem("coachchess-pwa",JSON.stringify({S,H}))}function load(){try{let x=JSON.parse(localStorage.getItem("coachchess-pwa"));if(x?.S?.b?.length===64){S=x.S;H=x.H||[];return}}catch{}S=init()}
-function play(m,bot=0){let n=san(S,m),before=cp(S);H.push({before,n,m:{...m}});S=apply(S,m);sel=null;T=[];save();render();if(!bot&&S.turn==="b"&&legal(S).length){busy=1;status();setTimeout(async()=>{let q=await chooseComputerMove();if(q)play(q,1);busy=0;coach(n,q?H.at(-1).n:"");render()},150)}}
+function play(m,bot=0){let n=san(S,m),before=cp(S);H.push({before,n,m:{...m}});S=apply(S,m);sel=null;T=[];save();render();if(!bot&&S.turn==="b"&&legal(S).length){busy=1;engineLabel(sfReady?"Stockfish 18 denkt · "+currentLevel().name:"Ersatz-Engine denkt");status();setTimeout(async()=>{let q=await chooseComputerMove();if(q)play(q,1);busy=0;engineLabel(sfReady?"Stockfish 18 bereit · "+currentLevel().name:"Ersatz-Engine aktiv");coach(n,q?H.at(-1).n:"");render()},120)}}
 function click(i){if(busy||S.turn!=="w"||!legal(S).length)return;let m=T.find(x=>x.to===i);if(m){if(m.promotion){let q=(prompt("Umwandlung: Q, R, B oder N","Q")||"Q").toUpperCase();m.promotion=["Q","R","B","N"].includes(q)?q:"Q"}play(m);return}let p=S.b[i];if(p&&p.c==="w"){sel=i;T=legal(S,i)}else{sel=null;T=[]}render()}
 function render(){let b=document.getElementById("board");b.innerHTML="";let O=[];for(let ry=0;ry<8;ry++)for(let rx=0;rx<8;rx++){let x=flip?7-rx:rx,y=flip?7-ry:ry;O.push(ix(x,y))}for(let i of O){let[x,y]=xy(i),q=document.createElement("button");q.className="sq "+((x+y)%2?"d":"l");if(S.last&&(i===S.last.from||i===S.last.to))q.classList.add("last");if(i===sel)q.classList.add("sel");let lm=T.find(m=>m.to===i);if(lm)q.classList.add(S.b[i]||lm.ep?"capture":"legal");let p=S.b[i];if(p){q.textContent=U[p.c+p.t];q.classList.add(p.c)}let f=document.createElement("span");f.className="coord file";f.textContent=F[x];let r=document.createElement("span");r.className="coord rank";r.textContent=8-y;q.append(f,r);q.onclick=()=>click(i);b.appendChild(q)}moves();status();document.getElementById("fen").value=fen(S);document.getElementById("undo").disabled=!H.length||busy}
 function moves(){let b=document.getElementById("moves");b.innerHTML="";for(let i=0;i<H.length;i+=2){let r=document.createElement("div");r.className="row";r.innerHTML=`<span>${i/2+1}.</span><span>${H[i]?.n||""}</span><span>${H[i+1]?.n||""}</span>`;b.appendChild(r)}b.scrollTop=b.scrollHeight}
@@ -157,7 +173,7 @@ document.getElementById("hint").onclick=async()=>{
   coachEl.textContent="Stockfish prüft die Stellung …";
   let best=null;
   try{
-    const uci=await stockfishBestMove(S,10);
+    const uci=await stockfishBestMove(S,{skill:20,time:900});
     best=uciMoveToLegal(uci,S);
   }catch(e){}
   if(!best){
@@ -167,6 +183,14 @@ document.getElementById("hint").onclick=async()=>{
   coachEl.innerHTML=best
     ?`Stockfish empfiehlt <b>${san(S,best)}</b>. Prüfe vor dem Zug gegnerische Drohungen, Entwicklung, Zentrum und Königssicherheit.`
     :"Keine legalen Züge.";
+};
+
+const levelSelect=document.getElementById("level");
+const savedLevel=localStorage.getItem("coachchess-level");
+if(savedLevel&&LEVELS[+savedLevel])levelSelect.value=savedLevel;
+levelSelect.onchange=()=>{
+  localStorage.setItem("coachchess-level",levelSelect.value);
+  engineLabel(sfReady?"Stockfish 18 bereit · "+currentLevel().name:"Ersatz-Engine aktiv");
 };
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.getElementById("install").style.display="block"});
 document.getElementById("install").onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById("install").style.display="none"}};

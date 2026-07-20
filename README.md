@@ -1,22 +1,14 @@
-# CoachChess 2.2
+# CoachChess 2.3
 
-## Safari-Stockfish-Fix
+## Neu
+- Der Computer spielt seine Züge über Stockfish 18.
+- Fünf Spielstärken: Einsteiger, Leicht, Mittel, Stark, Sehr stark.
+- Die Auswahl wird auf dem Gerät gespeichert.
+- Während Stockfish rechnet, zeigt die App den Denkstatus.
+- Hinweise werden mit maximaler Stockfish-Spielstärke berechnet.
 
-Version 2.1 fand beide Dateien und startete den Worker, Stockfish antwortete aber nicht. Der WASM-Pfad wurde über ein URL-Fragment an den Worker übergeben. Safari verarbeitet diesen Weg bei Web Workern offenbar nicht zuverlässig.
-
-Version 2.2 verwendet deshalb passende Dateinamen:
-
-- `engine.js`
-- `engine.wasm`
-
-Stockfish findet seine WASM-Datei damit automatisch.
-
-## Hochladen
-
-Alle Dateien aus diesem Paket ins Hauptverzeichnis des Repositorys hochladen und vorhandene Dateien ersetzen.
-
-Die alte Datei `stockfish-18-lite-single.wasm` kann anschließend gelöscht werden.
+## Upload
+Alle Dateien ins Hauptverzeichnis des GitHub-Repositories hochladen und vorhandene Dateien ersetzen.
 
 ## Testadresse
-
-`https://henkelmp.github.io/coachchess/?v=2.2.0`
+`https://henkelmp.github.io/coachchess/?v=2.3.0`
