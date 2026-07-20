@@ -1,7 +1,7 @@
 {
-  "name": "CoachChess",
+  "name": "CoachChess 2.0",
   "short_name": "CoachChess",
-  "start_url": "./",
+  "start_url": "./?v=2.0.0",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#111827",
@@ -19,5 +19,5 @@
     }
   ],
   "id": "./",
-  "version": "1.4.0"
+  "version": "2.0.0"
 }

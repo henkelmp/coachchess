@@ -1,24 +1,9 @@
-# CoachChess 1.4
+# CoachChess 2.0
 
-Diese Version nutzt absichtlich eine flache Dateistruktur. Alle Dateien werden direkt in das Hauptverzeichnis des GitHub-Repositories hochgeladen.
+Stabile Basisversion für GitHub Pages.
 
-## Benötigte Dateien
-- index.html
-- app.js
-- sw.js
-- manifest.webmanifest
-- icon-192.png
-- icon-512.png
-- stockfish-18-lite-single.js
-- stockfish-18-lite-single.wasm
-- VERSION
-- README.md
-- STOCKFISH_LICENSE.txt
+## Wichtig
+Alle Dateien gehören direkt in das Hauptverzeichnis des Repositorys. Versionierte URLs verhindern, dass Safari alte JavaScript-Dateien aus dem Cache verwendet. Stockfish erhält den WebAssembly-Pfad ausdrücklich beim Start.
 
-## Anzeige in der App
-- `Stockfish 18 bereit`: Engine funktioniert.
-- `Ersatz-Engine aktiv · Stockfish-Datei fehlt`: eine Engine-Datei fehlt oder ist nicht erreichbar.
-- `Ersatz-Engine aktiv · Startfehler`: Browser konnte den Worker nicht starten.
-- `Ersatz-Engine aktiv · Zeitüberschreitung`: Stockfish wurde geladen, antwortet aber nicht.
-
-Unter „Engine-Diagnose“ stehen die einzelnen Prüfschritte.
+## Erwartete Anzeige
+Nach wenigen Sekunden: `Stockfish 18 bereit`. Unter `Engine-Diagnose` werden alle Startschritte angezeigt.

@@ -1,23 +1,94 @@
 "use strict";
 const F="abcdefgh",U={wK:"♚",wQ:"♛",wR:"♜",wB:"♝",wN:"♞",wP:"♟",bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"},V={P:100,N:320,B:330,R:500,Q:900,K:20000};
 let S,H=[],sel=null,T=[],flip=false,busy=false,deferredPrompt=null;
-let sfWorker=null,sfReady=false,sfBusy=false,sfQueue=[];
-function engineLabel(text){const el=document.getElementById("engineStatus");if(el)el.textContent=text}
-function initStockfish(){
+let sfWorker=null,sfReady=false,sfBusy=false,sfQueue=[],sfInitTimer=null;
+const APP_VERSION="2.0.0";
+const SF_SCRIPT="stockfish-18-lite-single.js";
+const SF_WASM="stockfish-18-lite-single.wasm";
+
+function engineLabel(text){
+  const el=document.getElementById("engineStatus");
+  if(el)el.textContent=text;
+}
+function engineDiagnostic(lines){
+  const el=document.getElementById("engineDiagnostic");
+  if(el)el.innerHTML=lines.join("<br>");
+}
+async function resourceCheck(path){
   try{
-    sfWorker=new Worker("engine/stockfish-18-lite-single.js");
-    sfWorker.onmessage=e=>{
-      const line=String(e.data||"");
-      if(line==="uciok"){sfWorker.postMessage("isready");return}
-      if(line==="readyok"){sfReady=true;engineLabel("Stockfish 18 bereit");return}
+    const response=await fetch(path+"?v="+APP_VERSION,{cache:"reload"});
+    return {ok:response.ok,status:response.status,type:response.headers.get("content-type")||"unbekannt"};
+  }catch(error){
+    return {ok:false,status:0,type:String(error.message||error)};
+  }
+}
+async function initStockfish(){
+  const diagnostics=["✓ Oberfläche und Schachregeln geladen"];
+  engineLabel("Stockfish wird geprüft …");
+  engineDiagnostic(diagnostics);
+
+  const jsCheck=await resourceCheck(SF_SCRIPT);
+  diagnostics.push(jsCheck.ok?"✓ Engine-Datei gefunden":"✗ Engine-Datei nicht erreichbar (HTTP "+(jsCheck.status||"Fehler")+")");
+  engineDiagnostic(diagnostics);
+
+  const wasmCheck=await resourceCheck(SF_WASM);
+  diagnostics.push(wasmCheck.ok?"✓ WebAssembly-Datei gefunden":"✗ WebAssembly-Datei nicht erreichbar (HTTP "+(wasmCheck.status||"Fehler")+")");
+  engineDiagnostic(diagnostics);
+
+  if(!jsCheck.ok||!wasmCheck.ok){
+    engineLabel("Ersatz-Engine aktiv · Dateien fehlen");
+    return;
+  }
+
+  try{
+    const wasmURL=new URL(SF_WASM+"?v="+APP_VERSION,location.href).href;
+    const workerURL=SF_SCRIPT+"?v="+APP_VERSION+"#"+encodeURIComponent(wasmURL)+",worker";
+    sfWorker=new Worker(workerURL);
+    diagnostics.push("✓ Stockfish-Prozess gestartet");
+    engineDiagnostic(diagnostics);
+
+    sfWorker.onmessage=event=>{
+      const line=String(event.data||"").trim();
+      if(line==="uciok"){
+        diagnostics.push("✓ UCI-Verbindung hergestellt");
+        engineDiagnostic(diagnostics);
+        sfWorker.postMessage("isready");
+        return;
+      }
+      if(line==="readyok"){
+        clearTimeout(sfInitTimer);
+        sfReady=true;
+        diagnostics.push("✓ Stockfish 18 ist spielbereit");
+        engineDiagnostic(diagnostics);
+        engineLabel("Stockfish 18 bereit");
+        return;
+      }
       if(line.startsWith("bestmove ")){
-        const item=sfQueue.shift();sfBusy=false;
+        const item=sfQueue.shift();
+        sfBusy=false;
         if(item)item.resolve(line.split(/\s+/)[1]);
       }
     };
-    sfWorker.onerror=()=>{sfReady=false;sfBusy=false;engineLabel("Ersatz-Engine aktiv")};
+    sfWorker.onerror=event=>{
+      clearTimeout(sfInitTimer);
+      sfReady=false;sfBusy=false;
+      diagnostics.push("✗ Worker-Fehler: "+(event.message||"unbekannt"));
+      engineDiagnostic(diagnostics);
+      engineLabel("Ersatz-Engine aktiv · Startfehler");
+    };
     sfWorker.postMessage("uci");
-  }catch(e){sfReady=false;engineLabel("Ersatz-Engine aktiv")}
+    sfInitTimer=setTimeout(()=>{
+      if(!sfReady){
+        diagnostics.push("✗ Stockfish antwortet nicht innerhalb von 12 Sekunden");
+        engineDiagnostic(diagnostics);
+        engineLabel("Ersatz-Engine aktiv · Zeitüberschreitung");
+      }
+    },12000);
+  }catch(error){
+    diagnostics.push("✗ Browserfehler: "+String(error.message||error));
+    engineDiagnostic(diagnostics);
+    engineLabel("Ersatz-Engine aktiv · Browserfehler");
+  }
 }
 function uciMoveToLegal(uci,s){
   if(!uci||uci==="(none)")return null;
@@ -101,5 +172,12 @@ document.getElementById("hint").onclick=async()=>{
 };
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.getElementById("install").style.display="block"});
 document.getElementById("install").onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById("install").style.display="none"}};
-if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
+if("serviceWorker" in navigator){
+  window.addEventListener("load",async()=>{
+    try{
+      const registration=await navigator.serviceWorker.register("sw.js?v="+APP_VERSION,{updateViaCache:"none"});
+      await registration.update();
+    }catch(error){console.warn("Service Worker:",error)}
+  });
+}
 load();initStockfish();render();
