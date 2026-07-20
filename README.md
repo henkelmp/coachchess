@@ -1,17 +1,22 @@
-# CoachChess 2.1
+# CoachChess 2.2
 
-## Stockfish-Fehlerbehebung
+## Safari-Stockfish-Fix
 
-GitHub Pages lieferte die bisherige Engine-JavaScript-Datei unter ihrem alten Namen mit HTTP 404 aus. Version 2.1 verwendet deshalb die Datei `engine.js`.
+Version 2.1 fand beide Dateien und startete den Worker, Stockfish antwortete aber nicht. Der WASM-Pfad wurde über ein URL-Fragment an den Worker übergeben. Safari verarbeitet diesen Weg bei Web Workern offenbar nicht zuverlässig.
 
-Die WebAssembly-Datei bleibt `stockfish-18-lite-single.wasm`.
+Version 2.2 verwendet deshalb passende Dateinamen:
+
+- `engine.js`
+- `engine.wasm`
+
+Stockfish findet seine WASM-Datei damit automatisch.
 
 ## Hochladen
 
 Alle Dateien aus diesem Paket ins Hauptverzeichnis des Repositorys hochladen und vorhandene Dateien ersetzen.
 
-Die alte Datei `stockfish-18-lite-single.js` wird nicht mehr verwendet und kann anschließend auf GitHub gelöscht werden.
+Die alte Datei `stockfish-18-lite-single.wasm` kann anschließend gelöscht werden.
 
-## Erwartete Anzeige
+## Testadresse
 
-Nach wenigen Sekunden sollte `Stockfish 18 bereit` erscheinen.
+`https://henkelmp.github.io/coachchess/?v=2.2.0`

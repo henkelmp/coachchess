@@ -2,12 +2,12 @@ const CACHE="coachchess-2.0.0";
 const CORE=[
   "./?v=2.0.0",
   "index.html?v=2.0.0",
-  "app.js?v=2.1.0",
+  "app.js?v=2.2.0",
   "manifest.webmanifest?v=2.0.0",
   "icon-192.png",
   "icon-512.png",
-  "engine.js?v=2.1.0",
-  "stockfish-18-lite-single.wasm?v=2.1.0"
+  "engine.js?v=2.2.0",
+  "engine.wasm?v=2.2.0"
 ];
 self.addEventListener("install",event=>{
   self.skipWaiting();

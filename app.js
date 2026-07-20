@@ -2,9 +2,9 @@
 const F="abcdefgh",U={wK:"♚",wQ:"♛",wR:"♜",wB:"♝",wN:"♞",wP:"♟",bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"},V={P:100,N:320,B:330,R:500,Q:900,K:20000};
 let S,H=[],sel=null,T=[],flip=false,busy=false,deferredPrompt=null;
 let sfWorker=null,sfReady=false,sfBusy=false,sfQueue=[],sfInitTimer=null;
-const APP_VERSION="2.1.0";
+const APP_VERSION="2.2.0";
 const SF_SCRIPT="engine.js";
-const SF_WASM="stockfish-18-lite-single.wasm";
+const SF_WASM="engine.wasm";
 
 function engineLabel(text){
   const el=document.getElementById("engineStatus");
@@ -41,9 +41,7 @@ async function initStockfish(){
   }
 
   try{
-    const baseURL=new URL("./",location.href);const wasmURL=new URL(SF_WASM+"?v="+APP_VERSION,baseURL).href;
-    const workerURL=new URL(SF_SCRIPT+"?v="+APP_VERSION+"#"+encodeURIComponent(wasmURL)+",worker",baseURL).href;
-    sfWorker=new Worker(workerURL);
+    const baseURL=new URL("./",location.href);const workerURL=new URL(SF_SCRIPT+"?v="+APP_VERSION,baseURL).href;sfWorker=new Worker(workerURL);
     diagnostics.push("✓ Stockfish-Prozess gestartet");
     engineDiagnostic(diagnostics);
 
