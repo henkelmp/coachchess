@@ -1,8 +1,8 @@
 "use strict";
 const F="abcdefgh",U={wK:"♚",wQ:"♛",wR:"♜",wB:"♝",wN:"♞",wP:"♟",bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"},V={P:100,N:320,B:330,R:500,Q:900,K:20000};
 let S,H=[],sel=null,T=[],flip=false,busy=false,deferredPrompt=null;
-let sfWorker=null,sfReady=false,sfBusy=false,sfQueue=[],sfInitTimer=null;
-const APP_VERSION="2.3.0";
+let sfWorker=null,sfReady=false,sfBusy=false,sfCurrent=null,sfInitTimer=null;
+const APP_VERSION="2.4.0";
 const SF_SCRIPT="engine.js";
 const SF_WASM="engine.wasm";
 
@@ -61,10 +61,29 @@ async function initStockfish(){
         engineLabel("Stockfish 18 bereit · "+currentLevel().name);
         return;
       }
+      if(line.startsWith("info ")&&sfCurrent){
+        const score=line.match(/ score (cp|mate) (-?\d+)/);
+        const pv=line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
+        if(score){
+          sfCurrent.scoreType=score[1];
+          sfCurrent.scoreValue=Number(score[2]);
+        }
+        if(pv)sfCurrent.pv=pv[1];
+        return;
+      }
       if(line.startsWith("bestmove ")){
-        const item=sfQueue.shift();
+        const current=sfCurrent;
+        sfCurrent=null;
         sfBusy=false;
-        if(item)item.resolve(line.split(/\s+/)[1]);
+        if(current){
+          clearTimeout(current.timer);
+          current.resolve({
+            bestmove:line.split(/\s+/)[1],
+            scoreType:current.scoreType,
+            scoreValue:current.scoreValue,
+            pv:current.pv
+          });
+        }
       }
     };
     sfWorker.onerror=event=>{
@@ -103,16 +122,38 @@ const LEVELS={
   5:{name:"Sehr stark",skill:18,time:950}
 };
 function currentLevel(){return LEVELS[+document.getElementById("level").value]||LEVELS[3]}
-function stockfishBestMove(s,{skill=8,time=420}={}){
+function stockfishSearch(s,{skill=8,time=420}={}){
   return new Promise((resolve,reject)=>{
     if(!sfReady||!sfWorker||sfBusy){reject(new Error("Stockfish nicht bereit"));return}
-    sfBusy=true;sfQueue.push({resolve,reject});
+    sfBusy=true;
+    sfCurrent={resolve,reject,scoreType:null,scoreValue:null,pv:null,turn:s.turn,timer:null};
     sfWorker.postMessage("setoption name UCI_LimitStrength value false");
     sfWorker.postMessage("setoption name Skill Level value "+skill);
     sfWorker.postMessage("position fen "+fen(s));
     sfWorker.postMessage("go movetime "+time);
-    setTimeout(()=>{if(sfBusy){try{sfWorker.postMessage("stop")}catch{}}},Math.max(3500,time+2500));
+    sfCurrent.timer=setTimeout(()=>{
+      if(sfBusy&&sfCurrent){
+        try{sfWorker.postMessage("stop")}catch{}
+        const current=sfCurrent;
+        sfCurrent=null;
+        sfBusy=false;
+        current.reject(new Error("Stockfish-Zeitüberschreitung"));
+      }
+    },Math.max(5000,time+3500));
   });
+}
+function whiteScore(result,turn){
+  if(!result||result.scoreValue===null)return null;
+  let value=result.scoreType==="mate"
+    ?(result.scoreValue>0?100000:-100000)
+    :result.scoreValue;
+  return turn==="w"?value:-value;
+}
+function formatEvaluation(score){
+  if(score===null)return "–";
+  if(Math.abs(score)>=90000)return score>0?"Matt für Weiß":"Matt für Schwarz";
+  const pawns=score/100;
+  return (pawns>0?"+":"")+pawns.toFixed(2);
 }
 
 const xy=i=>[i%8,Math.floor(i/8)],ix=(x,y)=>y*8+x,ins=(x,y)=>x>=0&&x<8&&y>=0&&y<8,foe=c=>c==="w"?"b":"w",nm=i=>{let[x,y]=xy(i);return F[x]+(8-y)};
@@ -133,7 +174,26 @@ let r=p.c==="w"?7:0,e=foe(p.c);if(y===r&&x===4&&!chk(s,p.c)){if(s.cas[p.c+"K"]&&
 return o}
 function apply(s,m){let n=cp(s),p=n.b[m.from],cap=n.b[m.to];n.last={from:m.from,to:m.to};n.b[m.to]=p;n.b[m.from]=null;if(m.ep){let[x,y]=xy(m.to);n.b[ix(x,y+(p.c==="w"?1:-1))]=null}if(m.castle){let r=p.c==="w"?7:0;if(m.castle==="K"){n.b[ix(5,r)]=n.b[ix(7,r)];n.b[ix(7,r)]=null}else{n.b[ix(3,r)]=n.b[ix(0,r)];n.b[ix(0,r)]=null}}if(m.promotion)p.t=m.promotion;if(p.t==="K"){n.cas[p.c+"K"]=0;n.cas[p.c+"Q"]=0}if(p.t==="R"){if(m.from===63)n.cas.wK=0;if(m.from===56)n.cas.wQ=0;if(m.from===7)n.cas.bK=0;if(m.from===0)n.cas.bQ=0}if(cap&&cap.t==="R"){if(m.to===63)n.cas.wK=0;if(m.to===56)n.cas.wQ=0;if(m.to===7)n.cas.bK=0;if(m.to===0)n.cas.bQ=0}n.ep=-1;if(p.t==="P"&&Math.abs(m.to-m.from)===16)n.ep=(m.to+m.from)/2;n.half=(p.t==="P"||cap||m.ep)?0:n.half+1;if(s.turn==="b")n.full++;n.turn=foe(s.turn);return n}
 function legal(s,only=null){let o=[];for(let i=0;i<64;i++){let p=s.b[i];if(!p||p.c!==s.turn||(only!==null&&i!==only))continue;for(let m of pseudo(s,i)){let n=apply(s,m);if(!chk(n,p.c))o.push(m)}}return o}
-function san(s,m){let p=s.b[m.from],cap=!!s.b[m.to]||m.ep;if(m.castle)return m.castle==="K"?"O-O":"O-O-O";let t=p.t==="P"?"":p.t;if(p.t==="P"&&cap)t+=F[xy(m.from)[0]];else if(p.t!=="P"){let same=legal(s).filter(z=>z.to===m.to&&z.from!==m.from&&s.b[z.from]?.t===p.t);if(same.length){let[fx,fy]=xy(m.from);t+=!same.some(z=>xy(z.from)[0]===fx)?F[fx]:(8-fy)}}if(cap)t+="x";t+=nm(m.to);if(m.promotion)t+="="+m.promotion;let n=apply(s,m),r=legal(n);if(chk(n,n.turn))t+=r.length?"+":"#";return t}
+function san(s,m){
+  let p=s.b[m.from],cap=!!s.b[m.to]||m.ep;
+  if(m.castle)return m.castle==="K"?"O-O":"O-O-O";
+  const de={K:"K",Q:"D",R:"T",B:"L",N:"S"};
+  let t=p.t==="P"?"":de[p.t];
+  if(p.t==="P"&&cap)t+=F[xy(m.from)[0]];
+  else if(p.t!=="P"){
+    let same=legal(s).filter(z=>z.to===m.to&&z.from!==m.from&&s.b[z.from]?.t===p.t);
+    if(same.length){
+      let[fx,fy]=xy(m.from);
+      t+=!same.some(z=>xy(z.from)[0]===fx)?F[fx]:(8-fy);
+    }
+  }
+  if(cap)t+="x";
+  t+=nm(m.to);
+  if(m.promotion)t+="="+de[m.promotion];
+  let n=apply(s,m),r=legal(n);
+  if(chk(n,n.turn))t+=r.length?"+":"#";
+  return t
+}
 function ev(s){let z=0;for(let i=0;i<64;i++){let p=s.b[i];if(!p)continue;let v=V[p.t],[x,y]=xy(i),c=(3.5-Math.abs(3.5-x))+(3.5-Math.abs(3.5-y));if(p.t==="N"||p.t==="B")v+=c*4;if(p.t==="P")v+=(p.c==="w"?6-y:y-1)*6;z+=(p.c==="w"?1:-1)*v}return z}
 function ord(s){return legal(s).sort((a,b)=>(s.b[b.to]?V[s.b[b.to].t]:0)-(s.b[a.to]?V[s.b[a.to].t]:0))}
 function mm(s,d,a,b){let ms=ord(s);if(!ms.length)return chk(s,s.turn)?(s.turn==="w"?-999999:999999):0;if(!d)return ev(s);if(s.turn==="w"){let q=-1e9;for(let m of ms){q=Math.max(q,mm(apply(s,m),d-1,a,b));a=Math.max(a,q);if(b<=a)break}return q}else{let q=1e9;for(let m of ms){q=Math.min(q,mm(apply(s,m),d-1,a,b));b=Math.min(b,q);if(b<=a)break}return q}}
@@ -148,23 +208,130 @@ function fallbackAI(){
 async function chooseComputerMove(){
   const level=currentLevel();
   try{
-    const uci=await stockfishBestMove(S,{skill:level.skill,time:level.time});
-    const move=uciMoveToLegal(uci,S);
+    const result=await stockfishSearch(S,{skill:level.skill,time:level.time});
+    const move=uciMoveToLegal(result.bestmove,S);
     if(move)return move;
   }catch(e){}
   engineLabel(sfReady?"Stockfish bereit · Ersatzsuche verwendet":"Ersatz-Engine aktiv");
   return fallbackAI();
 }
 
+
+function sameMove(a,b){
+  return !!a&&!!b&&a.from===b.from&&a.to===b.to&&(a.promotion||null)===(b.promotion||null);
+}
+function moveExplanation(before,move,loss){
+  const piece=before.b[move.from];
+  const [xTo,yTo]=xy(move.to);
+  const parts=[];
+  if(piece?.t==="N"||piece?.t==="B")parts.push("Du entwickelst eine Leichtfigur.");
+  if(piece?.t==="P"&&(xTo===3||xTo===4))parts.push("Du kämpfst um das Zentrum.");
+  if(piece?.t==="K"&&move.castle)parts.push("Die Rochade verbessert deine Königssicherheit.");
+  if(piece?.t==="Q"&&before.full<=8)parts.push("Frühe Damenzüge können dem Gegner Tempi geben.");
+  if((piece?.t==="P")&&(xTo===0||xTo===7)&&before.full<=8)parts.push("Ein Randbauernzug hilft meist wenig bei Entwicklung und Zentrum.");
+  if(loss<=40)parts.push("Der Zug hält die Stellung stabil.");
+  else if(loss<=90)parts.push("Der Zug ist spielbar, aber eine präzisere Fortsetzung war möglich.");
+  else if(loss<=180)parts.push("Du gibst dem Gegner einen spürbaren Vorteil.");
+  else if(loss<=350)parts.push("Der Zug verschlechtert deine Stellung deutlich.");
+  else parts.push("Der Zug verliert sehr viel Material, Stellungsvorteil oder eine taktische Möglichkeit.");
+  return parts.join(" ");
+}
+function classifyLoss(loss,isBest){
+  if(isBest||loss<=15)return{label:"Bester Zug",icon:"★",cls:"excellent"};
+  if(loss<=40)return{label:"Sehr gut",icon:"✓",cls:"great"};
+  if(loss<=90)return{label:"Gut",icon:"✓",cls:"good"};
+  if(loss<=180)return{label:"Ungenauigkeit",icon:"?!",cls:"inaccuracy"};
+  if(loss<=350)return{label:"Fehler",icon:"?",cls:"mistake"};
+  return{label:"Grober Fehler",icon:"??",cls:"blunder"};
+}
+async function analyzeWhiteMove(before,move,after,playedNotation){
+  const badge=document.getElementById("analysisBadge");
+  const evalEl=document.getElementById("analysisEval");
+  const text=document.getElementById("coach");
+  const bestEl=document.getElementById("analysisBest");
+  badge.className="analysis-badge";
+  badge.textContent="Stockfish analysiert …";
+  evalEl.textContent="";
+  bestEl.textContent="";
+  text.textContent="Dein Zug wird mit der besten Stockfish-Fortsetzung verglichen.";
+
+  if(!sfReady){
+    badge.textContent="Analyse nicht verfügbar";
+    text.textContent="Stockfish ist nicht bereit. Die Partie kann trotzdem mit der Ersatz-Engine fortgesetzt werden.";
+    return;
+  }
+
+  try{
+    const bestResult=await stockfishSearch(before,{skill:20,time:650});
+    const bestMove=uciMoveToLegal(bestResult.bestmove,before);
+    const afterResult=await stockfishSearch(after,{skill:20,time:650});
+    const bestScore=whiteScore(bestResult,before.turn);
+    const afterScore=whiteScore(afterResult,after.turn);
+    const loss=bestScore===null||afterScore===null?0:Math.max(0,bestScore-afterScore);
+    const isBest=sameMove(move,bestMove);
+    const quality=classifyLoss(loss,isBest);
+    const bestNotation=bestMove?san(before,bestMove):"–";
+
+    badge.className="analysis-badge "+quality.cls;
+    badge.textContent=quality.icon+" "+quality.label;
+    evalEl.textContent="Stellungsbewertung nach deinem Zug: "+formatEvaluation(afterScore);
+    bestEl.innerHTML=isBest
+      ?`Stockfish bestätigt <b>${playedNotation}</b> als beste Fortsetzung.`
+      :`Beste Alternative: <b>${bestNotation}</b> · Verlust gegenüber dem besten Zug: <b>${(loss/100).toFixed(2)}</b> Bauerneinheiten.`;
+    text.textContent=moveExplanation(before,move,loss);
+  }catch(error){
+    badge.textContent="Analyse abgebrochen";
+    text.textContent="Die Zuganalyse konnte nicht abgeschlossen werden. Die Partie läuft weiter.";
+  }
+}
+function addOpponentReply(notation){
+  const el=document.getElementById("analysisReply");
+  el.innerHTML=notation?`Schwarz antwortet mit <b>${notation}</b>.`:"";
+}
 function save(){localStorage.setItem("coachchess-pwa",JSON.stringify({S,H}))}function load(){try{let x=JSON.parse(localStorage.getItem("coachchess-pwa"));if(x?.S?.b?.length===64){S=x.S;H=x.H||[];return}}catch{}S=init()}
-function play(m,bot=0){let n=san(S,m),before=cp(S);H.push({before,n,m:{...m}});S=apply(S,m);sel=null;T=[];save();render();if(!bot&&S.turn==="b"&&legal(S).length){busy=1;engineLabel(sfReady?"Stockfish 18 denkt · "+currentLevel().name:"Ersatz-Engine denkt");status();setTimeout(async()=>{let q=await chooseComputerMove();if(q)play(q,1);busy=0;engineLabel(sfReady?"Stockfish 18 bereit · "+currentLevel().name:"Ersatz-Engine aktiv");coach(n,q?H.at(-1).n:"");render()},120)}}
-function click(i){if(busy||S.turn!=="w"||!legal(S).length)return;let m=T.find(x=>x.to===i);if(m){if(m.promotion){let q=(prompt("Umwandlung: Q, R, B oder N","Q")||"Q").toUpperCase();m.promotion=["Q","R","B","N"].includes(q)?q:"Q"}play(m);return}let p=S.b[i];if(p&&p.c==="w"){sel=i;T=legal(S,i)}else{sel=null;T=[]}render()}
+async function play(m,bot=0){
+  const before=cp(S);
+  const notation=san(S,m);
+  H.push({before,n:notation,m:{...m}});
+  S=apply(S,m);
+  sel=null;T=[];
+  save();render();
+
+  if(!bot&&S.turn==="b"&&legal(S).length){
+    busy=true;
+    status();
+    engineLabel(sfReady?"Stockfish analysiert deinen Zug …":"Ersatz-Engine aktiv");
+    await analyzeWhiteMove(before,m,cp(S),notation);
+
+    engineLabel(sfReady?"Stockfish 18 denkt · "+currentLevel().name:"Ersatz-Engine denkt");
+    const q=await chooseComputerMove();
+    let reply="";
+    if(q){
+      reply=san(S,q);
+      await play(q,1);
+    }
+    busy=false;
+    addOpponentReply(reply);
+    engineLabel(sfReady?"Stockfish 18 bereit · "+currentLevel().name:"Ersatz-Engine aktiv");
+    render();
+  }
+}
+function click(i){if(busy||S.turn!=="w"||!legal(S).length)return;let m=T.find(x=>x.to===i);if(m){if(m.promotion){let q=(prompt("Umwandlung: D, T, L oder S","D")||"D").toUpperCase();let map={D:"Q",T:"R",L:"B",S:"N"};m.promotion=map[q]||"Q"}play(m);return}let p=S.b[i];if(p&&p.c==="w"){sel=i;T=legal(S,i)}else{sel=null;T=[]}render()}
 function render(){let b=document.getElementById("board");b.innerHTML="";let O=[];for(let ry=0;ry<8;ry++)for(let rx=0;rx<8;rx++){let x=flip?7-rx:rx,y=flip?7-ry:ry;O.push(ix(x,y))}for(let i of O){let[x,y]=xy(i),q=document.createElement("button");q.className="sq "+((x+y)%2?"d":"l");if(S.last&&(i===S.last.from||i===S.last.to))q.classList.add("last");if(i===sel)q.classList.add("sel");let lm=T.find(m=>m.to===i);if(lm)q.classList.add(S.b[i]||lm.ep?"capture":"legal");let p=S.b[i];if(p){q.textContent=U[p.c+p.t];q.classList.add(p.c)}let f=document.createElement("span");f.className="coord file";f.textContent=F[x];let r=document.createElement("span");r.className="coord rank";r.textContent=8-y;q.append(f,r);q.onclick=()=>click(i);b.appendChild(q)}moves();status();document.getElementById("fen").value=fen(S);document.getElementById("undo").disabled=!H.length||busy}
 function moves(){let b=document.getElementById("moves");b.innerHTML="";for(let i=0;i<H.length;i+=2){let r=document.createElement("div");r.className="row";r.innerHTML=`<span>${i/2+1}.</span><span>${H[i]?.n||""}</span><span>${H[i+1]?.n||""}</span>`;b.appendChild(r)}b.scrollTop=b.scrollHeight}
 function status(){let s=document.getElementById("status"),d=document.getElementById("detail"),ms=legal(S);if(busy){s.textContent="Schwarz denkt …";d.textContent="Dein Zug wurde geprüft und gespeichert.";return}if(!ms.length){s.textContent=chk(S,S.turn)?(S.turn==="w"?"Schachmatt – Schwarz gewinnt":"Schachmatt – Weiß gewinnt"):"Remis durch Patt";d.textContent="Partie beendet.";return}s.textContent=S.turn==="w"?"Weiß am Zug":"Schwarz am Zug";d.textContent=chk(S,S.turn)?"Schach!":`Zug ${S.full}`}
 function fen(s){let rs=[];for(let y=0;y<8;y++){let r="",e=0;for(let x=0;x<8;x++){let p=s.b[ix(x,y)];if(!p)e++;else{if(e){r+=e;e=0}r+=p.c==="w"?p.t:p.t.toLowerCase()}}if(e)r+=e;rs.push(r)}let c="";if(s.cas.wK)c+="K";if(s.cas.wQ)c+="Q";if(s.cas.bK)c+="k";if(s.cas.bQ)c+="q";return`${rs.join("/")} ${s.turn} ${c||"-"} ${s.ep>=0?nm(s.ep):"-"} ${s.half} ${s.full}`}
 function coach(w,b){let f=document.getElementById("coach"),rec=H.length>=2?H[H.length-2]:null,p=rec?rec.before.b[rec.m.from]:null,msg=`Du hast <b>${w}</b> gespielt. Schwarz antwortet mit <b>${b}</b>. `;if(p?.t==="N"||p?.t==="B")msg+="Du entwickelst eine Leichtfigur – in der Eröffnung meist sinnvoll.";else if(p?.t==="P"){let[x]=xy(rec.m.to);msg+=(x===3||x===4)?"Du kämpfst direkt um das Zentrum.":"Vermeide zu viele Randbauernzüge vor der Entwicklung."}else if(p?.t==="Q")msg+="Frühe Damenzüge können Tempo kosten.";else if(p?.t==="K"&&rec.m.castle)msg+="Gute Rochade: Königssicherheit und Turmaktivierung.";f.innerHTML=msg}
-document.getElementById("new").onclick=()=>{if(confirm("Neue Partie beginnen?")){S=init();H=[];sel=null;T=[];save();render()}};
+function resetAnalysis(){
+  const badge=document.getElementById("analysisBadge");
+  badge.className="analysis-badge";
+  badge.textContent="Noch kein Zug bewertet";
+  document.getElementById("analysisEval").textContent="Nach deinem ersten Zug erscheint hier die Stockfish-Bewertung.";
+  document.getElementById("analysisBest").textContent="";
+  document.getElementById("analysisReply").textContent="";
+  document.getElementById("coach").textContent="Besetze das Zentrum und entwickle Springer und Läufer.";
+}
+document.getElementById("new").onclick=()=>{if(confirm("Neue Partie beginnen?")){S=init();H=[];sel=null;T=[];save();resetAnalysis();render()}};
 document.getElementById("undo").onclick=()=>{if(busy||!H.length)return;let n=S.turn==="w"?2:1;while(n--&&H.length)S=H.pop().before;sel=null;T=[];save();render()};
 document.getElementById("flip").onclick=()=>{flip=!flip;render()};
 document.getElementById("hint").onclick=async()=>{
@@ -173,15 +340,15 @@ document.getElementById("hint").onclick=async()=>{
   coachEl.textContent="Stockfish prüft die Stellung …";
   let best=null;
   try{
-    const uci=await stockfishBestMove(S,{skill:20,time:900});
-    best=uciMoveToLegal(uci,S);
+    const result=await stockfishSearch(S,{skill:20,time:900});
+    best=uciMoveToLegal(result.bestmove,S);
   }catch(e){}
   if(!best){
     let ms=ord(S),bs=-1e9;
     for(let m of ms){let z=mm(apply(S,m),1,-1e9,1e9);if(z>bs){bs=z;best=m}}
   }
   coachEl.innerHTML=best
-    ?`Stockfish empfiehlt <b>${san(S,best)}</b>. Prüfe vor dem Zug gegnerische Drohungen, Entwicklung, Zentrum und Königssicherheit.`
+    ?`Stockfish empfiehlt <b>${san(S,best)}</b>. Die deutschen Kürzel sind S = Springer, L = Läufer, T = Turm, D = Dame und K = König.`
     :"Keine legalen Züge.";
 };
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
-<link rel="manifest" href="manifest.webmanifest?v=2.0.0">
+<link rel="manifest" href="manifest.webmanifest?v=2.4.0">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>CoachChess</title>
 <style>
@@ -21,22 +21,31 @@ h1{margin:0;font-size:1.45rem}.sub{color:var(--muted);margin:5px 0 12px}.panel{b
 .moves{background:#0b1220;border-radius:10px;max-height:230px;overflow:auto;margin-top:8px;padding:7px}.row{display:grid;grid-template-columns:38px 1fr 1fr;padding:5px;border-bottom:1px solid #ffffff12}
 select,textarea{width:100%;background:#0b1220;color:#fff;border:1px solid #475569;border-radius:9px;padding:9px;font:inherit}textarea{min-height:74px}label{display:block;color:var(--muted);font-size:.84rem;margin:8px 0 4px}
 .install{display:none;width:100%;margin-top:8px;background:#16a34a}
+.analysis-badge{display:inline-block;margin-top:8px;padding:5px 9px;border-radius:999px;background:#334155;color:#fff;font-weight:800;font-size:.82rem}
+.analysis-badge.excellent{background:#15803d}.analysis-badge.great{background:#16a34a}.analysis-badge.good{background:#2563eb}.analysis-badge.inaccuracy{background:#ca8a04}.analysis-badge.mistake{background:#ea580c}.analysis-badge.blunder{background:#dc2626}
+.analysis-line{margin-top:7px;line-height:1.42}.analysis-best{margin-top:8px;padding:8px;border-radius:9px;background:#0b1220}
 @media(max-width:820px){.app{grid-template-columns:1fr;padding:9px}.moves{max-height:170px}}
 </style>
 </head>
 <body>
 <div class="app">
 <main>
-<h1>CoachChess <span style="font-size:.72rem;color:#94a3b8">v2.3</span></h1><div class="sub">Installierbarer Schachtrainer · Du spielst Weiß</div>
+<h1>CoachChess <span style="font-size:.72rem;color:#94a3b8">v2.4</span></h1><div class="sub">Installierbarer Schachtrainer · Du spielst Weiß</div>
 <div class="panel"><div id="board" class="board"></div></div>
 </main>
 <aside class="side">
 <section class="panel"><div id="status" class="status">Weiß am Zug</div><div id="detail" class="muted">Neue Partie</div><div id="engineStatus" class="muted" style="margin-top:5px">Engine wird geladen …</div><details id="engineDetails" style="margin-top:8px"><summary class="muted" style="cursor:pointer">Engine-Diagnose</summary><div id="engineDiagnostic" class="muted" style="margin-top:7px;line-height:1.45">Startdiagnose läuft …</div></details>
 <div class="buttons"><button id="new" class="btn primary">Neue Partie</button><button id="undo" class="btn">Zug zurück</button><button id="flip" class="btn">Brett drehen</button><button id="hint" class="btn">Hinweis</button></div>
 <button id="install" class="btn install">App installieren</button></section>
-<section class="panel"><strong>Trainer</strong><div id="coach" class="muted" style="margin-top:7px">Besetze das Zentrum und entwickle Springer und Läufer.</div></section>
+<section class="panel"><strong>Zugbewertung</strong>
+<div id="analysisBadge" class="analysis-badge">Noch kein Zug bewertet</div>
+<div id="analysisEval" class="muted analysis-line">Nach deinem ersten Zug erscheint hier die Stockfish-Bewertung.</div>
+<div id="analysisBest" class="muted analysis-best"></div>
+<div id="coach" class="muted analysis-line">Besetze das Zentrum und entwickle Springer und Läufer.</div>
+<div id="analysisReply" class="muted analysis-line"></div>
+</section>
 <section class="panel"><strong>Zugliste</strong><div id="moves" class="moves"></div></section>
-<section class="panel"><strong>Einstellungen</strong><label>Computerstufe</label><select id="level"><option value="1">Einsteiger</option><option value="2">Leicht</option><option value="3" selected>Mittel</option><option value="4">Stark</option><option value="5">Sehr stark</option></select><div class="muted" style="margin-top:-7px;margin-bottom:12px">Stockfish passt Spielstärke und Denkzeit an.</div><label>FEN</label><textarea id="fen" readonly></textarea></section>
+<section class="panel"><strong>Einstellungen</strong><label>Computerstufe</label><select id="level"><option value="1">Einsteiger</option><option value="2">Leicht</option><option value="3" selected>Mittel</option><option value="4">Stark</option><option value="5">Sehr stark</option></select><div class="muted" style="margin-top:-7px;margin-bottom:12px">Stockfish passt Spielstärke und Denkzeit an.</div><label>Notation</label><div class="muted" style="margin-bottom:9px">S = Springer · L = Läufer · T = Turm · D = Dame · K = König</div><label>FEN (internationaler Standard)</label><textarea id="fen" readonly></textarea></section>
 </aside></div>
-<script src="app.js?v=2.3.0"></script>
+<script src="app.js?v=2.4.0"></script>
 </body></html>
